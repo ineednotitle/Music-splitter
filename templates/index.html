@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SPLIT — Music Stem Separator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Unbounded:wght@300;400;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --bg:#0a0a0a;
+  --surface:#111111;
+  --surface2:#181818;
+  --border:#222222;
+  --border2:#2e2e2e;
+  --text:#f0ede8;
+  --muted:#666;
+  --accent:#e8d5a3;
+  --accent2:#c4a96d;
+  --vocals:#ff6b6b;
+  --bass:#4ecdc4;
+  --melody:#a8e6cf;
+  --others:#ffd93d;
+  --midi:#c77dff;
+  --success:#6bcb77;
+  --error:#ff6b6b;
+  --mono:'Space Mono', monospace;
+  --display:'Unbounded', sans-serif;
+}
+html{font-size:16px;background:var(--bg);color:var(--text);font-family:var(--mono);}
+body{min-height:100vh;display:flex;flex-direction:column;}
+
+/* ── HEADER ─────────────────────────────────────────────────── */
+header{
+  padding:2rem 3rem;
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+}
+.logo{
+  font-family:var(--display);
+  font-size:1.5rem;font-weight:900;
+  letter-spacing:-0.03em;
+  color:var(--accent);
+}
+.logo span{color:var(--muted);font-weight:300;}
+.tagline{font-size:.7rem;color:var(--muted);letter-spacing:.15em;text-transform:uppercase;margin-top:.2rem;}
+.badge{
+  font-size:.65rem;letter-spacing:.12em;text-transform:uppercase;
+  padding:.35rem .8rem;
+  border:1px solid var(--border2);
+  color:var(--muted);
+  border-radius:2px;
+}
+
+/* ── MAIN ────────────────────────────────────────────────────── */
+main{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:0;}
+@media(max-width:900px){main{grid-template-columns:1fr;}}
+
+/* ── LEFT PANEL ──────────────────────────────────────────────── */
+.panel-left{
+  padding:3rem;
+  border-right:1px solid var(--border);
+  display:flex;flex-direction:column;gap:2rem;
+}
+
+/* Drop zone */
+.dropzone{
+  border:1px dashed var(--border2);
+  border-radius:4px;
+  padding:3rem 2rem;
+  text-align:center;
+  cursor:pointer;
+  transition:all .2s;
+  position:relative;
+  background:var(--surface);
+}
+.dropzone:hover,.dropzone.dragover{
+  border-color:var(--accent);
+  background:var(--surface2);
+}
+.dropzone input[type=file]{
+  position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%;
+}
+.drop-icon{font-size:2.5rem;color:var(--muted);margin-bottom:1rem;}
+.drop-main{font-family:var(--display);font-size:.9rem;font-weight:700;letter-spacing:-.02em;color:var(--text);margin-bottom:.4rem;}
+.drop-sub{font-size:.7rem;color:var(--muted);letter-spacing:.05em;}
+.drop-formats{
+  margin-top:1rem;display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;
+}
+.format-tag{
+  font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:.2rem .6rem;border:1px solid var(--border2);color:var(--muted);border-radius:2px;
+}
+
+/* File info */
+.file-info{
+  display:none;align-items:center;gap:1rem;
+  padding:1rem;background:var(--surface2);border:1px solid var(--border2);border-radius:4px;
+}
+.file-icon{font-size:1.5rem;color:var(--accent);}
+.file-details{flex:1;min-width:0;}
+.file-name{font-size:.8rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.file-size{font-size:.65rem;color:var(--muted);margin-top:.2rem;}
+.file-clear{font-size:.7rem;color:var(--muted);cursor:pointer;background:none;border:none;color:var(--error);padding:.2rem;}
+
+/* Settings */
+.settings-title{
+  font-size:.65rem;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-bottom:1rem;
+}
+.setting-row{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:.75rem 0;
+  border-bottom:1px solid var(--border);
+}
+.setting-row:last-child{border-bottom:none;}
+.setting-label{font-size:.75rem;color:var(--text);}
+.setting-sub{font-size:.65rem;color:var(--muted);margin-top:.2rem;}
+
+/* Toggle */
+.toggle{
+  position:relative;width:40px;height:22px;
+  --tcolor:var(--accent);
+}
+.toggle input{opacity:0;width:0;height:0;}
+.toggle-slider{
+  position:absolute;inset:0;
+  background:var(--border2);border-radius:22px;
+  cursor:pointer;transition:.2s;
+}
+.toggle-slider::before{
+  content:'';position:absolute;
+  width:16px;height:16px;
+  left:3px;top:3px;
+  background:#555;border-radius:50%;
+  transition:.2s;
+}
+.toggle input:checked + .toggle-slider{background:var(--tcolor);}
+.toggle input:checked + .toggle-slider::before{transform:translateX(18px);background:var(--bg);}
+
+/* Format selector */
+.format-select{
+  background:var(--surface2);border:1px solid var(--border2);
+  color:var(--text);font-family:var(--mono);font-size:.7rem;
+  padding:.4rem .8rem;border-radius:2px;
+  appearance:none;cursor:pointer;
+  outline:none;
+}
+
+/* Process button */
+.process-btn{
+  width:100%;padding:1rem;
+  background:var(--accent);color:var(--bg);
+  font-family:var(--display);font-size:.85rem;font-weight:700;
+  letter-spacing:-.01em;
+  border:none;border-radius:4px;cursor:pointer;
+  transition:all .15s;
+  display:flex;align-items:center;justify-content:center;gap:.6rem;
+}
+.process-btn:hover{background:var(--accent2);}
+.process-btn:disabled{opacity:.35;cursor:not-allowed;}
+
+/* ── RIGHT PANEL ─────────────────────────────────────────────── */
+.panel-right{
+  padding:3rem;
+  display:flex;flex-direction:column;gap:2rem;
+}
+
+/* Idle state */
+.idle-state{
+  flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1rem;color:var(--muted);text-align:center;
+}
+.idle-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:.5rem;opacity:.3;margin-bottom:1rem;
+}
+.idle-stem{
+  height:60px;border:1px solid;border-radius:4px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;
+}
+.idle-stem.v{border-color:var(--vocals);color:var(--vocals);}
+.idle-stem.b{border-color:var(--bass);color:var(--bass);}
+.idle-stem.m{border-color:var(--melody);color:var(--melody);}
+.idle-stem.o{border-color:var(--others);color:var(--others);}
+.idle-text{font-size:.75rem;letter-spacing:.05em;}
+
+/* Progress */
+.progress-state{display:none;flex-direction:column;gap:1.5rem;}
+.progress-label{
+  font-family:var(--display);font-size:.8rem;font-weight:700;
+  color:var(--accent);letter-spacing:-.02em;
+}
+.progress-step{font-size:.7rem;color:var(--muted);}
+.progress-bar-track{
+  height:4px;background:var(--border2);border-radius:2px;overflow:hidden;
+}
+.progress-bar-fill{
+  height:100%;background:var(--accent);
+  border-radius:2px;
+  transition:width .5s ease;width:0%;
+}
+.stem-progress{display:flex;flex-direction:column;gap:.5rem;margin-top:.5rem;}
+.stem-prog-row{
+  display:flex;align-items:center;gap:.75rem;
+}
+.stem-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.stem-prog-label{font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;width:70px;color:var(--muted);}
+.stem-prog-bar{flex:1;height:2px;background:var(--border);border-radius:2px;overflow:hidden;}
+.stem-prog-fill{height:100%;border-radius:2px;width:0%;transition:width 1s ease;}
+.stem-prog-fill.v{background:var(--vocals);}
+.stem-prog-fill.b{background:var(--bass);}
+.stem-prog-fill.m{background:var(--melody);}
+.stem-prog-fill.o{background:var(--others);}
+
+/* Results */
+.results-state{display:none;flex-direction:column;gap:1.5rem;}
+.results-title{
+  font-family:var(--display);font-size:.8rem;font-weight:700;
+  color:var(--success);letter-spacing:-.02em;
+  display:flex;align-items:center;gap:.6rem;
+}
+
+.stem-cards{display:flex;flex-direction:column;gap:.75rem;}
+.stem-card{
+  border:1px solid var(--border2);border-radius:4px;
+  overflow:hidden;
+  transition:border-color .2s;
+}
+.stem-card:hover{border-color:var(--border2);}
+.stem-card-header{
+  padding:.75rem 1rem;
+  display:flex;align-items:center;gap:.75rem;
+  background:var(--surface);
+}
+.stem-color-bar{width:4px;height:32px;border-radius:2px;flex-shrink:0;}
+.stem-name{font-size:.75rem;font-weight:700;letter-spacing:.05em;text-transform:uppercase;}
+.stem-desc{font-size:.6rem;color:var(--muted);margin-top:.15rem;}
+.stem-actions{margin-left:auto;display:flex;gap:.5rem;}
+.dl-btn{
+  font-size:.65rem;letter-spacing:.08em;text-transform:uppercase;
+  padding:.4rem .9rem;
+  border:1px solid var(--border2);
+  background:transparent;color:var(--text);
+  font-family:var(--mono);
+  border-radius:2px;cursor:pointer;
+  display:flex;align-items:center;gap:.4rem;
+  transition:all .15s;
+}
+.dl-btn:hover{background:var(--surface2);}
+.dl-btn i{font-size:.65rem;}
+
+/* MIDI card */
+.midi-card{
+  border:1px solid var(--midi);
+  border-radius:4px;padding:.75rem 1rem;
+  display:flex;align-items:center;gap:.75rem;
+  background:rgba(199,125,255,.05);
+}
+.midi-icon{color:var(--midi);font-size:1.2rem;}
+.midi-info{flex:1;}
+.midi-name{font-size:.75rem;font-weight:700;color:var(--midi);}
+.midi-sub{font-size:.6rem;color:var(--muted);margin-top:.15rem;}
+
+/* Error */
+.error-state{display:none;padding:1.5rem;background:rgba(255,107,107,.08);border:1px solid var(--error);border-radius:4px;}
+.error-title{font-size:.75rem;color:var(--error);font-weight:700;margin-bottom:.5rem;}
+.error-msg{font-size:.65rem;color:var(--muted);}
+
+/* ── WAVEFORM VIZ ─────────────────────────────────────────────── */
+.waveform-container{
+  height:60px;display:flex;align-items:center;
+  gap:2px;padding:0 1rem;overflow:hidden;
+}
+.wf-bar{
+  flex:1;border-radius:1px;opacity:.4;
+  animation:wfPulse 1.5s ease-in-out infinite;
+}
+@keyframes wfPulse{
+  0%,100%{transform:scaleY(.3);}
+  50%{transform:scaleY(1);}
+}
+
+/* ── FOOTER ──────────────────────────────────────────────────── */
+footer{
+  padding:1.5rem 3rem;
+  border-top:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:.65rem;color:var(--muted);
+}
+.footer-links{display:flex;gap:1.5rem;}
+.footer-links a{color:var(--muted);text-decoration:none;transition:color .15s;}
+.footer-links a:hover{color:var(--text);}
+.powered{letter-spacing:.08em;}
+
+/* Reset btn */
+.reset-btn{
+  font-size:.65rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:.4rem .9rem;border:1px solid var(--border2);
+  background:transparent;color:var(--muted);font-family:var(--mono);
+  border-radius:2px;cursor:pointer;transition:all .15s;
+}
+.reset-btn:hover{color:var(--text);border-color:var(--border2);}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <div class="logo">SPLIT<span>.app</span></div>
+    <div class="tagline">Open-source music stem separator</div>
+  </div>
+  <div class="badge">Powered by Demucs + librosa</div>
+</header>
+
+<main>
+  <!-- ── LEFT ── -->
+  <div class="panel-left">
+
+    <!-- Dropzone -->
+    <div class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept=".mp3,.wav,.mp4,.flac,.ogg,.m4a"/>
+      <div class="drop-icon"><i class="fa-solid fa-music"></i></div>
+      <div class="drop-main">Drop your track here</div>
+      <div class="drop-sub">or click to browse</div>
+      <div class="drop-formats">
+        <span class="format-tag">MP3</span>
+        <span class="format-tag">WAV</span>
+        <span class="format-tag">MP4</span>
+        <span class="format-tag">FLAC</span>
+        <span class="format-tag">OGG</span>
+        <span class="format-tag">M4A</span>
+      </div>
+    </div>
+
+    <!-- File info -->
+    <div class="file-info" id="fileInfo">
+      <i class="fa-solid fa-file-audio file-icon"></i>
+      <div class="file-details">
+        <div class="file-name" id="fileName">—</div>
+        <div class="file-size" id="fileSize">—</div>
+      </div>
+      <button class="file-clear" id="clearFile" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- Settings -->
+    <div>
+      <div class="settings-title">Options</div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Extract MIDI</div>
+          <div class="setting-sub">Export melody as .mid file (piano roll)</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="midiToggle"/>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div>
+          <div class="setting-label">Download format</div>
+          <div class="setting-sub">Output format for separated stems</div>
+        </div>
+        <select class="format-select" id="formatSelect">
+          <option value="wav">WAV</option>
+          <option value="mp3">MP3</option>
+          <option value="mp4">MP4</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Process button -->
+    <button class="process-btn" id="processBtn" disabled>
+      <i class="fa-solid fa-scissors"></i> Split Stems
+    </button>
+
+  </div>
+
+  <!-- ── RIGHT ── -->
+  <div class="panel-right">
+
+    <!-- Idle -->
+    <div class="idle-state" id="idleState">
+      <div class="idle-grid">
+        <div class="idle-stem v">Vocals</div>
+        <div class="idle-stem b">Bass</div>
+        <div class="idle-stem m">Melody</div>
+        <div class="idle-stem o">Others</div>
+      </div>
+      <div class="idle-text">Upload a track to separate stems</div>
+    </div>
+
+    <!-- Processing -->
+    <div class="progress-state" id="progressState">
+      <div class="progress-label" id="progressLabel">Splitting…</div>
+      <div class="progress-step" id="progressStep">Initializing…</div>
+
+      <!-- Animated waveform bars -->
+      <div class="waveform-container" id="waveViz"></div>
+
+      <div class="progress-bar-track">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+
+      <div class="stem-progress">
+        <div class="stem-prog-row">
+          <div class="stem-dot" style="background:var(--vocals)"></div>
+          <div class="stem-prog-label">Vocals</div>
+          <div class="stem-prog-bar"><div class="stem-prog-fill v" id="prog-v"></div></div>
+        </div>
+        <div class="stem-prog-row">
+          <div class="stem-dot" style="background:var(--bass)"></div>
+          <div class="stem-prog-label">Bass</div>
+          <div class="stem-prog-bar"><div class="stem-prog-fill b" id="prog-b"></div></div>
+        </div>
+        <div class="stem-prog-row">
+          <div class="stem-dot" style="background:var(--melody)"></div>
+          <div class="stem-prog-label">Melody</div>
+          <div class="stem-prog-bar"><div class="stem-prog-fill m" id="prog-m"></div></div>
+        </div>
+        <div class="stem-prog-row">
+          <div class="stem-dot" style="background:var(--others)"></div>
+          <div class="stem-prog-label">Others</div>
+          <div class="stem-prog-bar"><div class="stem-prog-fill o" id="prog-o"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div class="results-state" id="resultsState">
+      <div class="results-title">
+        <i class="fa-solid fa-circle-check"></i> Stems ready
+      </div>
+      <div class="stem-cards" id="stemCards"></div>
+      <div id="midiSection"></div>
+      <button class="reset-btn" id="resetBtn">↩ Split another track</button>
+    </div>
+
+    <!-- Error -->
+    <div class="error-state" id="errorState">
+      <div class="error-title"><i class="fa-solid fa-triangle-exclamation"></i> Processing failed</div>
+      <div class="error-msg" id="errorMsg">—</div>
+    </div>
+
+  </div>
+</main>
+
+<footer>
+  <div class="powered">Uses Meta's Demucs · librosa · pretty_midi</div>
+  <div class="footer-links">
+    <a href="https://github.com/facebookresearch/demucs" target="_blank">Demucs on GitHub</a>
+    <a href="https://librosa.org" target="_blank">librosa</a>
+  </div>
+</footer>
+
+<script>
+const STEM_META = {
+  vocals:  { color:'var(--vocals)',  label:'Vocals',  desc:'Lead & backing vocals' },
+  bass:    { color:'var(--bass)',    label:'Bass',    desc:'Bass guitar & sub-bass' },
+  melody:  { color:'var(--melody)', label:'Melody',  desc:'Drums, keys & lead instruments' },
+  others:  { color:'var(--others)', label:'Others',  desc:'Accompaniment & FX' },
+  no_vocals:{ color:'var(--others)',label:'No Vocals',desc:'Everything minus vocals' },
+};
+
+let currentFile = null;
+let jobId = null;
+let pollInterval = null;
+
+// ── Waveform viz ────────────────────────────────────────────────
+function buildWave() {
+  const c = document.getElementById('waveViz');
+  c.innerHTML = '';
+  const colors = ['var(--vocals)','var(--bass)','var(--melody)','var(--others)'];
+  for (let i = 0; i < 40; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'wf-bar';
+    const h = 10 + Math.random() * 50;
+    bar.style.height = h + 'px';
+    bar.style.background = colors[i % 4];
+    bar.style.animationDelay = (Math.random() * 1.5) + 's';
+    bar.style.animationDuration = (.8 + Math.random() * .8) + 's';
+    c.appendChild(bar);
+  }
+}
+buildWave();
+
+// ── File handling ───────────────────────────────────────────────
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileInfo = document.getElementById('fileInfo');
+const fileName = document.getElementById('fileName');
+const fileSize = document.getElementById('fileSize');
+const processBtn = document.getElementById('processBtn');
+
+function formatBytes(b) {
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  return (b/1024/1024).toFixed(1) + ' MB';
+}
+
+function setFile(file) {
+  currentFile = file;
+  fileName.textContent = file.name;
+  fileSize.textContent = formatBytes(file.size);
+  fileInfo.style.display = 'flex';
+  processBtn.disabled = false;
+}
+
+fileInput.addEventListener('change', e => { if (e.target.files[0]) setFile(e.target.files[0]); });
+
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  const f = e.dataTransfer.files[0];
+  if (f) setFile(f);
+});
+
+document.getElementById('clearFile').addEventListener('click', () => {
+  currentFile = null;
+  fileInput.value = '';
+  fileInfo.style.display = 'none';
+  processBtn.disabled = true;
+});
+
+// ── State helpers ───────────────────────────────────────────────
+function showState(id) {
+  ['idleState','progressState','resultsState','errorState'].forEach(s => {
+    document.getElementById(s).style.display = s === id ? 'flex' : 'none';
+  });
+  document.getElementById(id).style.display = 'flex';
+}
+
+// ── Process ─────────────────────────────────────────────────────
+processBtn.addEventListener('click', async () => {
+  if (!currentFile) return;
+  const wantMidi = document.getElementById('midiToggle').checked;
+  const outFormat = document.getElementById('formatSelect').value;
+
+  processBtn.disabled = true;
+  showState('progressState');
+  document.getElementById('progressLabel').textContent = 'Uploading…';
+  document.getElementById('progressStep').textContent = 'Sending file to server…';
+  document.getElementById('progressFill').style.width = '0%';
+
+  const fd = new FormData();
+  fd.append('file', currentFile);
+  fd.append('midi', wantMidi ? 'true' : 'false');
+  fd.append('format', outFormat);
+
+  try {
+    const res = await fetch('/upload', { method:'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Upload failed');
+    jobId = data.job_id;
+    startPolling();
+  } catch(e) {
+    showError(e.message);
+  }
+});
+
+function startPolling() {
+  if (pollInterval) clearInterval(pollInterval);
+  pollInterval = setInterval(pollStatus, 1500);
+}
+
+async function pollStatus() {
+  if (!jobId) return;
+  try {
+    const res = await fetch('/status/' + jobId);
+    const job = await res.json();
+    updateProgress(job);
+    if (job.status === 'done') {
+      clearInterval(pollInterval);
+      showResults(job);
+    } else if (job.status === 'error') {
+      clearInterval(pollInterval);
+      showError(job.error || 'Unknown error');
+    }
+  } catch(e) { /* ignore transient */ }
+}
+
+function updateProgress(job) {
+  const pct = job.progress || 0;
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressStep').textContent = job.step || '…';
+  // Animate stem bars proportionally
+  const bars = {v:'prog-v',b:'prog-b',m:'prog-m',o:'prog-o'};
+  const stemPct = Math.min(pct * 1.2, 100);
+  Object.values(bars).forEach((id,i) => {
+    setTimeout(() => {
+      document.getElementById(id).style.width = Math.min(stemPct, 100) + '%';
+    }, i * 120);
+  });
+}
+
+function showResults(job) {
+  showState('resultsState');
+  const cards = document.getElementById('stemCards');
+  cards.innerHTML = '';
+
+  const stems = job.stems || {};
+  const fmt = document.getElementById('formatSelect').value;
+
+  for (const [name, filename] of Object.entries(stems)) {
+    const meta = STEM_META[name] || { color:'var(--muted)', label: name, desc:'' };
+    const card = document.createElement('div');
+    card.className = 'stem-card';
+    card.innerHTML = `
+      <div class="stem-card-header">
+        <div class="stem-color-bar" style="background:${meta.color}"></div>
+        <div>
+          <div class="stem-name">${meta.label}</div>
+          <div class="stem-desc">${meta.desc}</div>
+        </div>
+        <div class="stem-actions">
+          <button class="dl-btn" onclick="downloadStem('${filename}')">
+            <i class="fa-solid fa-download"></i> ${fmt.toUpperCase()}
+          </button>
+        </div>
+      </div>
+    `;
+    cards.appendChild(card);
+  }
+
+  const midiSec = document.getElementById('midiSection');
+  midiSec.innerHTML = '';
+  if (job.midi) {
+    midiSec.innerHTML = `
+      <div class="midi-card">
+        <i class="fa-solid fa-piano midi-icon"></i>
+        <div class="midi-info">
+          <div class="midi-name">MIDI — melody.mid</div>
+          <div class="midi-sub">Piano roll extracted from melody stem</div>
+        </div>
+        <button class="dl-btn" onclick="downloadStem('${job.midi}')" style="border-color:var(--midi);color:var(--midi);">
+          <i class="fa-solid fa-download"></i> .MID
+        </button>
+      </div>
+    `;
+  }
+}
+
+function downloadStem(filename) {
+  window.location.href = '/download/' + jobId + '/' + filename;
+}
+
+function showError(msg) {
+  showState('errorState');
+  document.getElementById('errorMsg').textContent = msg;
+  processBtn.disabled = false;
+}
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  jobId = null;
+  currentFile = null;
+  fileInput.value = '';
+  fileInfo.style.display = 'none';
+  processBtn.disabled = true;
+  showState('idleState');
+});
+</script>
+</body>
+</html>
